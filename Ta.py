@@ -1,108 +1,78 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import time
+from PIL import Image
+import io
 
-# --- إعدادات الصفحة الاحترافية ---
-st.set_page_config(
-    page_title="Pro Analyzer | B.TAYEB",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="الشامل للتحليل الذكي", layout="wide", page_icon="🎯")
 
-# --- تنسيق مخصص باستخدام CSS ---
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f5f7f9;
-    }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border_radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# --- واجهة الموقع ---
+st.markdown("<h1 style='text-align: center;'>🔍 المنصة الشاملة لتحليل النصوص والصور والملفات</h1>", unsafe_allow_html=True)
+st.divider()
 
-# --- وظيفة معالجة البيانات (Caching لتحسين السرعة) ---
-@st.cache_data
-def load_data(file):
-    time.sleep(1) # محاكاة معالجة بسيطة
-    df = pd.read_csv(file)
-    return df
-
-# --- القائمة الجانبية (Sidebar) ---
+# --- القائمة الجانبية للتنقل ---
 with st.sidebar:
     st.title("🛠️ لوحة التحكم")
-    uploaded_file = st.file_uploader("ارفع ملف البيانات (CSV)", type=["csv"])
-    st.divider()
-    st.info("هذا التطبيق مطور لتقديم تحليلات ذكية وسريعة.")
+    option = st.radio("اختر نوع التحليل:", ["📄 تحليل الملفات (Data)", "🖼️ تحليل الصور (Images)", "📝 تحليل النصوص (Text)"])
+    st.info("قم باختيار القسم ثم ارفع الملف المطلوب.")
 
-# --- الواجهة الرئيسية ---
-st.title("📊 المحلل الذكي - Pro Analyzer")
-st.caption("أداة احترافية لتحويل البيانات الخام إلى رؤى بصرية")
-
-if uploaded_file is not None:
-    # تحميل البيانات
-    with st.spinner('جاري تحليل البيانات بدقة...'):
-        df = load_data(uploaded_file)
+# --- 1. قسم تحليل الملفات (CSV/Excel) ---
+if option == "📄 تحليل الملفات (Data)":
+    st.header("📊 تحليل جداول البيانات")
+    file = st.file_uploader("ارفع ملف CSV أو Excel", type=['csv', 'xlsx'])
     
-    # صف المؤشرات العلوية (KPIs)
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("إجمالي السجلات", len(df))
-    with col2:
-        st.metric("عدد الأعمدة", len(df.columns))
-    with col3:
-        st.metric("القيم المفقودة", df.isnull().sum().sum())
-    with col4:
-        st.metric("نوع الملف", "CSV")
-
-    st.divider()
-
-    # تبويبات لتنظيم المحتوى
-    tab1, tab2, tab3 = st.tabs(["📑 استعراض البيانات", "📈 التحليل البصري", "🤖 إحصائيات متقدمة"])
-
-    with tab1:
-        st.subheader("معاينة البيانات المرفوعة")
-        st.dataframe(df.head(10), use_container_width=True)
+    if file:
+        df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
+        st.success("تم رفع الملف بنجاح!")
         
-        # زر لتحميل البيانات المنظفة
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("تحميل البيانات كـ CSV", data=csv, file_name='cleaned_data.csv', mime='text/csv')
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.write("### ملخص سريع")
+            st.write(f"**عدد الأسطر:** {df.shape[0]}")
+            st.write(f"**عدد الأعمدة:** {df.shape[1]}")
+        with col2:
+            st.write("### معاينة البيانات")
+            st.dataframe(df.head(10))
 
-    with tab2:
-        st.subheader("الرسوم البيانية التفاعلية")
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+# --- 2. قسم تحليل الصور ---
+elif option == "🖼️ تحليل الصور (Images)":
+    st.header("📷 معالجة وتحليل الصور")
+    img_file = st.file_uploader("ارفع صورة (JPG, PNG, JPEG)", type=['jpg', 'png', 'jpeg'])
+    
+    if img_file:
+        image = Image.open(img_file)
+        st.image(image, caption="الصورة المرفوعة", use_container_width=True)
         
-        if numeric_cols:
-            col_x = st.selectbox("اختر محور (X)", df.columns)
-            col_y = st.selectbox("اختر محور (Y)", numeric_cols)
-            
-            chart_type = st.radio("نوع الرسم البياني", ["خطوط", "أعمدة", "نقاط بعثرة"], horizontal=True)
-            
-            if chart_type == "خطوط":
-                fig = px.line(df, x=col_x, y=col_y, template="plotly_white", color_discrete_sequence=['#007BFF'])
-            elif chart_type == "أعمدة":
-                fig = px.bar(df, x=col_x, y=col_y, template="plotly_white")
-            else:
-                fig = px.scatter(df, x=col_x, y=col_y, template="plotly_white")
-            
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("لا توجد أعمدة رقمية كافية لإنشاء رسوم بيانية.")
+        # معلومات تقنية عن الصورة
+        st.write("### ℹ️ تفاصيل الصورة")
+        col1, col2, col3 = st.columns(3)
+        col1.write(f"**الصيغة:** {image.format}")
+        col2.write(f"**الحجم:** {image.size}")
+        col3.write(f"**النمط اللوني:** {image.mode}")
+        
+        if st.button("تحويل الصورة إلى أبيض وأسود"):
+            bw_img = image.convert("L")
+            st.image(bw_img, caption="الصورة بعد التحويل")
 
-    with tab3:
-        st.subheader("تحليل إحصائي سريع")
-        st.write(df.describe())
+# --- 3. قسم تحليل النصوص ---
+elif option == "📝 تحليل النصوص (Text)":
+    st.header("📝 تحليل النصوص والمحتوى")
+    user_text = st.text_area("أدخل النص هنا للتحليل:", placeholder="اكتب أو الصق النص هنا...")
+    
+    if user_text:
+        st.subheader("📊 نتائج تحليل النص")
+        words = user_text.split()
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("عدد الكلمات", len(words))
+        c2.metric("عدد الحروف", len(user_text))
+        c3.metric("عدد الأسطر", user_text.count('\n') + 1)
+        
+        if st.button("استخراج الكلمات الفريدة"):
+            unique_words = set(words)
+            st.write(f"الكلمات الفريدة: {list(unique_words)[:20]}...")
 
-else:
-    # واجهة ترحيبية عند عدم وجود ملف
-    st.image("https://img.freepik.com/free-vector/data-extraction-concept-illustration_114360-4766.jpg", width=400)
-    st.write("👈 يرجى رفع ملف من القائمة الجانبية للبدء.")
-
-# --- التذييل (Footer) ---
+# --- التذييل ---
 st.divider()
-st.markdown("<center>صنع بكل إتقان بواسطة B.TAYEB | 2026</center>", unsafe_allow_html=True)
+st.caption("<center>نظام التحليل المتكامل | 2026</center>", unsafe_allow_html=True)
+    
